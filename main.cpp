@@ -24,6 +24,11 @@ struct EthArpPacket final {
 	EthHdr eth_;
 	ArpHdr arp_;
 };
+
+struct IpHdr final
+{
+
+};
 #pragma pack(pop)
 
 
@@ -118,7 +123,7 @@ void send_arp(pcap_t* handle, Mac my_mac, Mac s_mac, Ip s_ip, Ip t_ip)
 
 Mac get_s_mac(pcap_t* handle, Mac my_mac, Ip my_ip, Ip s_ip)
 {
-	send_arp(handle, my_mac, Mac("ff:ff:ff:ff:ff:ff"), my_ip, s_ip);
+	send_arp(handle, my_mac, Mac("ff:ff:ff:ff:ff:ff"), ntohl(my_ip), s_ip);
 	
 	Mac s_mac;
 	
@@ -233,7 +238,7 @@ private:
             }
         }
     }
-/*
+    /*
     void tcp_capture_and_replay() {
         struct pcap_pkthdr* header;
         const u_char* packet_data;
