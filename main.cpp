@@ -235,10 +235,10 @@ private:
             }
 
             EthArpPacket* recv_packet = (EthArpPacket*)packet_data;
-            Ip sender_ip = Ip(ntohl(recv_packet->arp_.sip_));
-            Ip target_ip = Ip(ntohl(recv_packet->arp_.tip_));
+            Ip sender_ip = Ip(recv_packet->arp_.sip_);
+            Ip target_ip = Ip(recv_packet->arp_.tip_);
 
-            if (!(recv_packet->eth_.type() == EthHdr::Arp && recv_packet->arp_.op() == htons(ArpHdr::Request))) {
+            if (!(recv_packet->eth_.type() == EthHdr::Arp && recv_packet->arp_.op() == ArpHdr::Request)) {
                 return;
             }
             if (recv_packet->arp_.tmac_ == Mac::nullMac()) { // Broadcast
