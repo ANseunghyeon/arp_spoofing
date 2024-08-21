@@ -175,7 +175,12 @@ public:
 
     void fill_work_que(const std::multimap<Ip, Ip>& source_map) {
         std::lock_guard<std::mutex> lock(que_mutex);
-        work_que.push(source_map);
+        
+        for (const auto& pair : source_map) {
+            std::multimap<Ip, Ip> single_task;
+            single_task.insert(pair);
+            work_que.push(single_task);
+        }
     }
 
     void process_work_que() {
