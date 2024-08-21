@@ -195,7 +195,6 @@ public:
 private:
     void send_spoofing() {
         while (true) {
-            std::lock_guard<std::mutex> lock(que_mutex);
             if (work_que.empty()) {
                 continue;
             }
@@ -206,7 +205,13 @@ private:
             work_que.pop();
 
             for (const auto& pair : current_map) {
-                send_arp(this->handle, this->my_mac, sender_mac_list.at(pair.first),  pair.second, pair.first);
+                auto it = sender_mac_list.find(pair.first);
+                if (it != sender_mac_list.end()) {
+                    Mac sender_mac = it->second;
+                    send_arp(this->handle, this->my_mac, sender_mac, pair.second, pair.first);
+                } else {
+                    fprintf(stderr, "Error: Could not find MAC address for IP %s\n", std::string(pair.first).c_str());
+                }
             }
         }
     }
