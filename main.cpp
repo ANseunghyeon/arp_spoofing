@@ -107,7 +107,8 @@ namespace My{
 void send_arp(pcap_t* handle, Mac my_mac, Mac s_mac, Ip s_ip, Ip t_ip)
 {
 	EthArpPacket packet;
-	
+	printf("%d\n", s_ip);
+    printf("%d\n", t_ip);
 	packet.eth_.dmac_ = s_mac;
 	packet.eth_.smac_ = my_mac;
 	packet.eth_.type_ = htons(EthHdr::Arp);
