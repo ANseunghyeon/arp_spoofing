@@ -175,7 +175,7 @@ public:
 
     void fill_work_que(const std::multimap<Ip, Ip>& source_map) {
         std::lock_guard<std::mutex> lock(que_mutex);
-        
+
         for (const auto& pair : source_map) {
             std::multimap<Ip, Ip> single_task;
             single_task.insert(pair);
@@ -218,6 +218,8 @@ private:
                     fprintf(stderr, "Error: Could not find MAC address for IP %s\n", std::string(pair.first).c_str());
                 }
             }
+            printf("zz\n");
+            sleep(10);
         }
     }
 
@@ -260,6 +262,7 @@ private:
                 temp_map.insert({sender_ip, target_ip});
                 fill_work_que(temp_map);
             }
+            sleep(10);
         }
     }
     
@@ -296,6 +299,7 @@ private:
                     fprintf(stderr, "Error sending packet: %s\n", pcap_geterr(handle));
                 }
             }
+            sleep(10);
         }
     }
 };
